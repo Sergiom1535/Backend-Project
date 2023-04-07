@@ -30,6 +30,19 @@ def register():
         return 'account created'
     return 'DONE'
 
+@app.route('/login', methods = ['GET','POST'])
+def login():
+    Username = request.args.get('username')
+    password = request.args.get('password')
+    cur.execute('SELECT * FROM users WHERE Username = %s AND password = % s',(Username,password))
+    account = cur.fetchone()
+    conn.commit()
+    if account is None:
+        return 'invalid username/password!'
+    else:
+        return 'login Successful'
+    return ' '
+
 
 
 
