@@ -43,6 +43,13 @@ def login():
         return 'login Successful'
     return ' '
 
+@app.route('/public', methods = [ 'GET','POST'])
+def public():
+    cur.execute('SELECT Username FROM users')
+    usernames = cur.fetchall()
+    conn.commit()
+    return usernames
+
 
 
 
