@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, session, abort, make_response
-import pymysql
+from flask import Flask, render_template, request, redirect, url_for, session, abort, make_response,jsonify
 from flask_cors import CORS
 import os
 from werkzeug.utils import secure_filename
 import jwt
+import pymysql
+from datetime import datetime, timedelta
+from functools import wraps
 
 app = Flask(__name__)
 cors = CORS(app, resources={r"/*": {"origins": "*"}})
@@ -18,12 +20,39 @@ conn = pymysql.connect(
 app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024
 app.config['UPLOAD_EXTENSIONS'] = ['.jpg', '.png', '.gif']
 app.config['UPLOAD_PATH'] = 'uploads'
+app.config['SECRET_KEY']='my_keys'
 
 
 cur = conn.cursor()
+
+def token_required(func):
+    @wraps(func)
+    def decorated(*args,**kwargs):
+        token = request.args.get('token')
+        if not token:
+            return jsonify({'Alert':'Token is missing'})
+        try:
+            payload = jwt.decode(token, app.config['SECRET_KEY'])
+        except:
+            return jsonify({'Alert':'Invalid Token'})
+    return decorated
+
 @app.route('/')
 def index():
     return render_template("index.html")
+
+@app.route('/')
+def home():
+    if not session.get('logged_in'):
+        return 'user not logged in'
+    else:
+        return 'logged in'
+
+@app.route('/auth')
+@token_required
+def auth():
+    return 'JWT is Verified'
+
 @app.route('/', methods=['POST'])
 def upload_files():
     uploaded_file = request.files['file']
@@ -34,6 +63,9 @@ def upload_files():
         return make_response('Not a valid file extension',415)
     uploaded_file.save(os.path.join(app.config['UPLOAD_PATH'], filename))
     return redirect(url_for('index'))
+
+
+
 
 @app.route('/register', methods = [ 'GET','POST'])
 def register():
@@ -64,7 +96,14 @@ def login():
         return make_response('invalid username/password!',404)
         
     else:
-        return 'login Successful'
+        session['logged_in'] = True
+        token = jwt.encode({
+            'Username': request.args.get('username'),
+            'expiration': str(datetime.utcnow() + timedelta(seconds =120))
+        },
+            app.config['SECRET_KEY'])
+        return (jsonify({'token': token.decode('utf-8')}),'loggin successful')
+
     return ' '
 
 @app.route('/public', methods = [ 'GET','POST'])
